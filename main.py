@@ -1,20 +1,22 @@
 from requests import post
+from pprint import pprint
 
 
 def main():
     for saison_id, saison in get_saisonen().items():
-        print()
-        print(f"Saison-{saison_id}: {saison}")
+        print(f"\nSaison-{saison_id}: {saison}")
+
         for liga_id, liga in get_ligen(saison_id).items():
             print(f"Liga-{liga_id}: {liga}")
+
             for spiel_id, spiel in get_spiele(
                 saison_id=saison_id, liga_id=liga_id
             ).items():
                 print(f"Spiel-{spiel_id}: {spiel}")
-            return
+                spieler = get_spieler(saison_id, spiel_id)
+                pprint(spieler)
 
-    # spiel_ids = get_spiele(2, 1, 1)
-    # get_spiel(spiel)
+            return
 
 
 def get_saisonen():
@@ -63,19 +65,42 @@ def get_spiele(saison_id, liga_id, klub_id=0, bezirk_id=0, kreis_id=0, spieltag_
     spiele = {}
     for spiel in sportwinner_api(spiele_data):
         spiele.update(
-            {spiel[0]: {"datum": spiel[1], "heim": spiel[3], "auswaerts": spiel[6]}}
+            {spiel[0]: {"datum": spiel[1], "heim": spiel[3], "gast": spiel[6]}}
         )
     return spiele
 
 
-def get_spiel(saison_id, spiel_id):
+def get_spieler(saison_id, spiel_id):
     spiel_data = {
         "command": "GetSpielerInfo",
         "id_saison": saison_id,
         "id_spiel": spiel_id,
     }
     body = sportwinner_api(spiel_data)
-    return body
+    spieler = []
+    for match in body:
+        spieler.append(
+            {
+                "name": match[0],
+                "bahn1": match[1],
+                "bahn2": match[2],
+                "bahn3": match[3],
+                "bahn4": match[4],
+                "gesammt": match[5],
+            }
+        )
+        spieler.append(
+            {
+                "name": match[-1],
+                "bahn1": match[-2],
+                "bahn2": match[-3],
+                "bahn3": match[-4],
+                "bahn4": match[-5],
+                "gesammt": match[-6],
+            }
+        )
+
+    return spieler
 
 
 def sportwinner_api(data: dict):

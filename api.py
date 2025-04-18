@@ -6,7 +6,7 @@ from sqlalchemy import create_engine, text
 engine = create_engine("sqlite:///database.db", echo=False)
 
 
-def export_data(table_name: str, data: dict):
+def export_data(table_name: str, data: list):
     df = pd.DataFrame(data)
     with engine.begin() as con:
         df.to_sql(name=table_name, con=con, if_exists="replace", index=False)
@@ -294,8 +294,13 @@ def get_spiele(saison_id, liga_id, spieltag_id, klub_id=0, bezirk_id=0, kreis_id
             "art_spieltag": 2,
         }
     )
-    mappedSpiele = [
-        {
+    
+    mappedSpiele = []
+    for spiel in spiele:
+        spiel_id = spiel[0]
+        mappedMannschaften = get_spiel_info(saison_id, spiel_id)
+
+        mappedSpiel = {
             "id": spiel[0],
             "saison_id": saison_id,
             "bezirk_id": bezirk_id,
@@ -305,15 +310,18 @@ def get_spiele(saison_id, liga_id, spieltag_id, klub_id=0, bezirk_id=0, kreis_id
             "datum": spiel[1],
             "uhrzeit": spiel[2],
             "heim_name": spiel[3],
+            "heim_gesamt": mappedMannschaften["heim_mannschaft"]["gesamt"],
             "heim_mp": spiel[4],
+            "heim_sp": mappedMannschaften["heim_mannschaft"]["sp"],
             "gast_name": spiel[6],
+            "gast_gesamt": mappedMannschaften["gast_mannschaft"]["gesamt"],
             "gast_mp": spiel[5],
+            "gast_sp": mappedMannschaften["gast_mannschaft"]["sp"],
             "status": spiel[9],
             "info": spiel[10],
             "stream_link": spiel[12],
         }
-        for spiel in spiele
-    ]
+        mappedSpiele.append(mappedSpiel)
 
     with engine.begin() as con:
         con.execute(
@@ -345,40 +353,93 @@ def get_spiele(saison_id, liga_id, spieltag_id, klub_id=0, bezirk_id=0, kreis_id
 
     if mappedSpiele:
         export_data(name, mappedSpiele)
+
+    export_data(name, mappedSpiele)
     return mappedSpiele
 
 
-def get_spieler(saison_id, spiel_id):
-    spiel_data = {
+def get_spiel_info(saison_id, spiel_id):
+    """
+    {
+        "heim_mannschaft": {
+            "gesamt": int,
+            "mp": float,
+            "sp": float
+        },
+        "gast_mannschaft": {
+            "gesamt": int,
+            "mp": float,
+            "sp": float
+        }
+    }
+    """
+    duelle = sportwinner_api({
         "command": "GetSpielerInfo",
         "id_saison": saison_id,
         "id_spiel": spiel_id,
+    })
+
+    mappedMannschaften = {
+        "heim_mannschaft": {
+            "gesamt": duelle[-1][5],
+            "mp": duelle[-1][6],
+            "sp": duelle[-1][7]
+        },
+        "gast_mannschaft": {
+            "gesamt": duelle[-1][10],
+            "mp": duelle[-1][9],
+            "sp": duelle[-1][8]
+        }
     }
-    body = sportwinner_api(spiel_data)
-    spieler = []
-    for match in body:
-        spieler.append(
-            {
-                "name": match[0],
-                "bahn1": match[1],
-                "bahn2": match[2],
-                "bahn3": match[3],
-                "bahn4": match[4],
-                "gesammt": match[5],
-            }
-        )
-        spieler.append(
-            {
-                "name": match[-1],
-                "bahn1": match[-2],
-                "bahn2": match[-3],
-                "bahn3": match[-4],
-                "bahn4": match[-5],
-                "gesammt": match[-6],
-            }
+
+    name = "spieler"
+    with engine.begin() as con:
+        con.execute(
+            text(f"""
+            CREATE TABLE IF NOT EXISTS {name} (
+                id INTEGER PRIMARY KEY,
+                name TEXT,
+                bahn_1 TEXT,
+                bahn_2 TEXT,
+                bahn_3 TEXT,
+                bahn_4 TEXT,
+                gesamt TEXT,
+                sp TEXT,
+                mp TEXT,
+                spiel_id TEXT,
+                FOREIGN KEY (spiel_id) REFERENCES spiele(id)
+            )
+        """)
         )
 
-    return spieler
+    for duell in duelle[:-1]:
+        mappedHeimSpieler = {
+            "spiel_id": spiel_id,
+            "name": duell[0],
+            "bahn_1": duell[1],
+            "bahn_2": duell[2],
+            "bahn_3": duell[3],
+            "bahn_4": duell[4],
+            "gesamt": duell[5],
+            "sp": duell[6],
+            "mp": duell[7]
+        }
+        export_data(name, [mappedHeimSpieler])
+
+        mappedGastSpieler = {
+            "spiel_id": spiel_id,
+            "name": duell[15],
+            "bahn_1": duell[14],
+            "bahn_2": duell[13],
+            "bahn_3": duell[12],
+            "bahn_4": duell[11],
+            "gesamt": duell[10],
+            "sp": duell[9],
+            "mp": duell[8]
+        }
+        export_data(name, [mappedGastSpieler])
+
+    return mappedMannschaften
 
 
 session = requests.Session()

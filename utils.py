@@ -12,7 +12,7 @@ def save_row(row, filename="kegel_spieler.csv"):
         df.to_csv(filename, mode="w", header=True, index=False)
 
 
-def save_checkpoint(data:dict, filename="checkpoint.json"):
+def save_checkpoint(data: dict, filename="checkpoint.json"):
     with open(filename, "r+") as f:
         try:
             file_data = json.load(f)
@@ -23,7 +23,6 @@ def save_checkpoint(data:dict, filename="checkpoint.json"):
         f.seek(0)
         json.dump(file_data, f)
         f.truncate()
-
 
 
 def is_already_processed(key):

@@ -1,12 +1,32 @@
 import time
 import requests
+import pandas as pd
+from pathlib import Path
 
 
-def get_saisonen():
-    saisonen = {
-        int(year[0]): year[1] for year in sportwinner_api({"command": "GetSaisonArray"})
+def export_data(url: str, data: dict):
+    data_dir = Path("data")
+    data_dir.mkdir(exist_ok=True)
+    path = data_dir / url
+
+    df = pd.DataFrame(data)
+    df.to_csv(path, mode="w", header=True, index=False)
+    return path
+
+
+def get_saisons():
+    """
+    return {
+        "id": int,
+        "jahr": int,
+        "ist_abgeschlossen": int,
     }
-    return saisonen
+    """
+    path = "saisons.csv"
+    saisons = sportwinner_api({"command": "GetSaisonArray"})
+    body = [{"id": saison[0], "jahr": saison[1], "ist_abgeschlossen": saison[2]} for saison in saisons]
+    export_data(path, body)
+    return body
 
 
 def get_ligen(saison_id, bezirk_id=0, kreis_id=0) -> dict:
@@ -26,10 +46,37 @@ def get_ligen(saison_id, bezirk_id=0, kreis_id=0) -> dict:
     return ligen
 
 
-def get_spiele(saison_id, liga_id, klub_id=0, bezirk_id=0, kreis_id=0, spieltag_id=0):
-    """
-    id, datum, uhrzeit, verein,
-    """
+def get_bezirke(saison_id):
+    data = {"command": "GetBezirkArray", "id_saison": saison_id}
+    response = sportwinner_api(data)
+    print(dict(response))
+
+
+def get_kreise(saison_id, bezirk_id=0):
+    data = {
+        "command": "GetKreisArray",
+        "id_mandant": 1,
+        "id_saison": saison_id,
+        "id_land": 1,  # 1 -> bayern
+        "id_bezirk": bezirk_id,  # 0 -> bskv, 6 -> niederbayern
+    }
+    response = sportwinner_api(data)
+    kreise = {kreis[0]: kreis[2] for kreis in response}
+    return kreise
+
+
+def get_spieltage(saison_id, liga_id):
+    data = {
+        "command": "GetSpieltagArray",
+        "id_saison": saison_id,
+        "id_liga": liga_id,
+    }
+    response = sportwinner_api(data)
+    spieltage = {spieltag[0]: spieltag[2] for spieltag in response}
+    return spieltage
+
+
+def get_spiele(saison_id, liga_id, spieltag_id, klub_id=0, bezirk_id=0, kreis_id=0):
     spiele_data = {
         "command": "GetSpiel",
         "id_saison": saison_id,
@@ -39,10 +86,10 @@ def get_spiele(saison_id, liga_id, klub_id=0, bezirk_id=0, kreis_id=0, spieltag_
         "id_liga": liga_id,
         "id_spieltag": spieltag_id,
         "favorit": "",
-        "art_bezirk": 0,
-        "art_kreis": 0,
-        "art_liga": 0,
-        "art_spieltag": 0,
+        "art_bezirk": 1,  # bundesliga=0, bskv=1, regierungsbezirk=2
+        "art_kreis": 0,  # bundesliga/bskv=0, kreis=1
+        "art_liga": 0,  # immer 0
+        "art_spieltag": 2,  # ???
     }
 
     spiele = {}

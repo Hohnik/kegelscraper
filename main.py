@@ -1,4 +1,12 @@
-from api import get_saisons, get_ligen, get_spiele, get_spieler, get_spieltage
+from api import (
+    get_bezirke,
+    get_kreise,
+    get_saisons,
+    get_ligen,
+    get_spiele,
+    get_spieler,
+    get_spieltage,
+)
 from utils import save_row, save_checkpoint, is_already_processed
 from time import sleep
 
@@ -47,7 +55,25 @@ if __name__ == "__main__":
     # bezirks_id = 0 # bskv
     # kreis_id = 0 # None
     # spieltag_id = 73914 # 1. Spieltag
-    saisons = get_saisons()
-    print(saisons)
+
+    from pprint import pprint
+
+    saison = get_saisons()[0]
+    pprint(saison)
+
+    liga = get_ligen(saison["id"])[0]
+    pprint(liga)
+
+    spieltag = get_spieltage(saison["id"], liga["id"])[0]
+    pprint(spieltag)
+
+    spiel = get_spiele(saison["id"], liga["id"], spieltag["id"])[0]
+    pprint(spiel)
+
+    bezirke = get_bezirke(saison["id"])
+    pprint(bezirke)
+
+    kreise = get_kreise(saison["id"])
+    pprint(kreise)
 
     # main()

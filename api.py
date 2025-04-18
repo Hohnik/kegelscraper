@@ -22,7 +22,7 @@ def get_saisons():
     """
     saisons = sportwinner_api({"command": "GetSaisonArray"})
 
-    name = "Saisons"
+    name = "saisons"
     mappedSaisons = [
         {"id": saison[0], "jahr": saison[1], "ist_abgeschlossen": saison[2]}
         for saison in saisons
@@ -39,7 +39,8 @@ def get_saisons():
         """)
         )
 
-    export_data(name, mappedSaisons)
+    if mappedSaisons:
+        export_data(name, mappedSaisons)
     return mappedSaisons
 
 
@@ -86,7 +87,28 @@ def get_ligen(saison_id, bezirk_id=0, kreis_id=0) -> dict:
         }
         for liga in ligen
     ]
-    export_data(name, mappedLigen)
+
+    with engine.begin() as con:
+        con.execute(
+            text(f"""
+            CREATE TABLE IF NOT EXISTS {name} (
+                id TEXT PRIMARY KEY,
+                saison_id TEXT,
+                bezirk_id TEXT,
+                kreis_id TEXT,
+                name TEXT,
+                ist_aktiv TEXT,
+                spielleiter TEXT,
+                tel_1 TEXT,
+                tel_2 TEXT,
+                tel_3 TEXT,
+                mail TEXT,
+                FOREIGN KEY (saison_id) REFERENCES saisons(id)
+            )
+        """)
+        )
+    if mappedLigen:
+        export_data(name, mappedLigen)
     return mappedLigen
 
 
@@ -104,7 +126,21 @@ def get_bezirke(saison_id):
         {"id": bezirk[0], "saison_id": saison_id, "name": bezirk[1]}
         for bezirk in bezirke
     ]
-    export_data(name, mappedBezirke)
+
+    with engine.begin() as con:
+        con.execute(
+            text(f"""
+            CREATE TABLE IF NOT EXISTS {name} (
+                id TEXT PRIMARY KEY,
+                name TEXT,
+                saison_id TEXT,
+                FOREIGN KEY (saison_id) REFERENCES saisons(id)
+            )
+        """)
+        )
+
+    if mappedBezirke:
+        export_data(name, mappedBezirke)
     return mappedBezirke
 
 
@@ -143,7 +179,24 @@ def get_kreise(saison_id, mandant_id=1, land_id=1, bezirk_id=0):
         }
         for kreis in kreise
     ]
-    export_data(name, mappedKreise)
+
+    with engine.begin() as con:
+        con.execute(
+            text(f"""
+            CREATE TABLE IF NOT EXISTS {name} (
+                id TEXT PRIMARY KEY,
+                mandant_id TEXT,
+                land_id TEXT,
+                saison_id TEXT,
+                bezirk_id TEXT,
+                FOREIGN KEY (saison_id) REFERENCES saisons(id),
+                FOREIGN KEY (bezirk_id) REFERENCES bezirke(id)
+            )
+        """)
+        )
+
+    if mappedKreise:
+        export_data(name, mappedKreise)
     return mappedKreise
 
 
@@ -177,7 +230,25 @@ def get_spieltage(saison_id, liga_id):
         }
         for spieltag in spieltage
     ]
-    export_data(name, mappedSpieltage)
+
+    with engine.begin() as con:
+        con.execute(
+            text(f"""
+            CREATE TABLE IF NOT EXISTS {name} (
+                id TEXT PRIMARY KEY,
+                saison_id TEXT,
+                liga_id TEXT,
+                nummer TEXT,
+                name TEXT,
+                ist_abgeschlossen TEXT,
+                FOREIGN KEY (saison_id) REFERENCES saisons(id),
+                FOREIGN KEY (liga_id) REFERENCES ligen(id)
+            )
+        """)
+        )
+
+    if mappedSpieltage:
+        export_data(name, mappedSpieltage)
     return mappedSpieltage
 
 
@@ -243,7 +314,37 @@ def get_spiele(saison_id, liga_id, spieltag_id, klub_id=0, bezirk_id=0, kreis_id
         }
         for spiel in spiele
     ]
-    export_data(name, mappedSpiele)
+
+    with engine.begin() as con:
+        con.execute(
+            text(f"""
+            CREATE TABLE IF NOT EXISTS {name} (
+                id TEXT PRIMARY KEY,
+                saison_id TEXT,
+                bezirk_id TEXT,
+                kreis_id TEXT,
+                liga_id TEXT,
+                spieltag_id TEXT,
+                datum TEXT,
+                uhrzeit TEXT,
+                heim_name TEXT,
+                heim_mp TEXT,
+                gast_name TEXT,
+                gast_mp TEXT,
+                status TEXT,
+                info TEXT,
+                stream_link TEXT,
+                FOREIGN KEY (saison_id) REFERENCES saisons(id),
+                FOREIGN KEY (bezirk_id) REFERENCES bezirke(id),
+                FOREIGN KEY (kreis_id) REFERENCES kreise(id),
+                FOREIGN KEY (spieltag_id) REFERENCES spieltage(id),
+                FOREIGN KEY (liga_id) REFERENCES ligen(id)
+            )
+        """)
+        )
+
+    if mappedSpiele:
+        export_data(name, mappedSpiele)
     return mappedSpiele
 
 

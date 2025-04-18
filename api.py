@@ -10,7 +10,10 @@ def export_data(url: str, data: dict):
     path = data_dir / url
 
     df = pd.DataFrame(data)
-    df.to_csv(path, mode="w", header=True, index=False)
+    if path.exists():
+        df.to_csv(path, mode="a", header=False, index=False)
+    else:
+        df.to_csv(path, mode="w", header=True, index=False)
     return path
 
 

@@ -23,7 +23,7 @@ def get_saisons():
     """
     saisons = sportwinner_api({"command": "GetSaisonArray"})
 
-    table_name = "saisons"
+    table_name = "Saisons"
     body = [{"id": saison[0], "jahr": saison[1], "ist_abgeschlossen": saison[2]} for saison in saisons]
 
     with engine.begin() as con:

@@ -1,13 +1,13 @@
+from sqlalchemy import create_engine
 from api import (
-    get_bezirke,
-    get_kreise,
     get_saisons,
     get_ligen,
+    get_spiel_info,
     get_spiele,
-    get_spieler,
     get_spieltage,
 )
 from utils import save_row, save_checkpoint, is_already_processed
+from schema import create_all_tables
 from time import sleep
 
 
@@ -23,7 +23,7 @@ def main():
                         sleep(0.5)
                         continue
 
-                    spieler = get_spieler(saison_id, spiel_id)
+                    spieler = get_spiele(saison_id, spiel_id)
                     for s in spieler:
                         if not s["name"]:
                             continue
@@ -55,25 +55,38 @@ if __name__ == "__main__":
     # bezirks_id = 0 # bskv
     # kreis_id = 0 # None
     # spieltag_id = 73914 # 1. Spieltag
+    engine = create_engine("sqlite:///database.db", echo=False)
+    create_all_tables(engine)
 
     from pprint import pprint
 
     saison = get_saisons()[0]
     pprint(saison)
+    print()
 
     liga = get_ligen(saison["id"])[0]
     pprint(liga)
+    print()
 
     spieltag = get_spieltage(saison["id"], liga["id"])[0]
     pprint(spieltag)
+    print()
 
     spiel = get_spiele(saison["id"], liga["id"], spieltag["id"])[0]
     pprint(spiel)
+    print()
 
-    bezirke = get_bezirke(saison["id"])
-    pprint(bezirke)
+    spiel_info = get_spiel_info(saison["id"], spiel["id"])
+    print("Spiel info")
+    pprint(spiel_info)
+    print()
 
-    kreise = get_kreise(saison["id"])
-    pprint(kreise)
+    # -------- Not needed ----------
+
+    # bezirke = get_bezirke(saison["id"])
+    # pprint(bezirke)
+    #
+    # kreise = get_kreise(saison["id"])
+    # pprint(kreise)
 
     # main()

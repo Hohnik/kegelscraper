@@ -1,15 +1,26 @@
 import time
+from hashlib import md5
 import requests
 import pandas as pd
 from sqlalchemy import create_engine, text
+from sqlalchemy.exc import IntegrityError
+from itertools import count
 
 engine = create_engine("sqlite:///database.db", echo=False)
+inf = count()
 
 
 def export_data(table_name: str, data: list):
     df = pd.DataFrame(data)
     with engine.begin() as con:
-        df.to_sql(name=table_name, con=con, if_exists="replace", index=False)
+        try:
+            old = pd.read_sql_table(table_name, con=con)
+            df = pd.concat([old, df], ignore_index=True)
+            df = df.drop_duplicates(subset=["id"])
+            df.to_sql(name=table_name, con=con, if_exists="append", index=False)
+        except IntegrityError:
+            # Duplicates
+            pass
 
 
 def get_saisons():
@@ -21,24 +32,11 @@ def get_saisons():
     }
     """
     saisons = sportwinner_api({"command": "GetSaisonArray"})
-
     name = "saisons"
     mappedSaisons = [
         {"id": saison[0], "jahr": saison[1], "ist_abgeschlossen": saison[2]}
         for saison in saisons
     ]
-
-    with engine.begin() as con:
-        con.execute(
-            text(f"""
-            CREATE TABLE IF NOT EXISTS {name} (
-                id TEXT PRIMARY KEY,
-                jahr TEXT,
-                ist_abgeschlossen TEXT
-            )
-        """)
-        )
-
     if mappedSaisons:
         export_data(name, mappedSaisons)
     return mappedSaisons
@@ -87,26 +85,6 @@ def get_ligen(saison_id, bezirk_id=0, kreis_id=0) -> dict:
         }
         for liga in ligen
     ]
-
-    with engine.begin() as con:
-        con.execute(
-            text(f"""
-            CREATE TABLE IF NOT EXISTS {name} (
-                id TEXT PRIMARY KEY,
-                saison_id TEXT,
-                bezirk_id TEXT,
-                kreis_id TEXT,
-                name TEXT,
-                ist_aktiv TEXT,
-                spielleiter TEXT,
-                tel_1 TEXT,
-                tel_2 TEXT,
-                tel_3 TEXT,
-                mail TEXT,
-                FOREIGN KEY (saison_id) REFERENCES saisons(id)
-            )
-        """)
-        )
     if mappedLigen:
         export_data(name, mappedLigen)
     return mappedLigen
@@ -126,28 +104,12 @@ def get_bezirke(saison_id):
         {"id": bezirk[0], "saison_id": saison_id, "name": bezirk[1]}
         for bezirk in bezirke
     ]
-
-    with engine.begin() as con:
-        con.execute(
-            text(f"""
-            CREATE TABLE IF NOT EXISTS {name} (
-                id TEXT PRIMARY KEY,
-                name TEXT,
-                saison_id TEXT,
-                FOREIGN KEY (saison_id) REFERENCES saisons(id)
-            )
-        """)
-        )
-
     if mappedBezirke:
         export_data(name, mappedBezirke)
     return mappedBezirke
 
 
 def get_kreise(saison_id, mandant_id=1, land_id=1, bezirk_id=0):
-    # id_land: 1 -> bayern
-    # id_bezirk: 0 -> bskv, id_bezirk: 6 -> Niederbayern
-
     """
     {
         "id": int,
@@ -179,22 +141,6 @@ def get_kreise(saison_id, mandant_id=1, land_id=1, bezirk_id=0):
         }
         for kreis in kreise
     ]
-
-    with engine.begin() as con:
-        con.execute(
-            text(f"""
-            CREATE TABLE IF NOT EXISTS {name} (
-                id TEXT PRIMARY KEY,
-                mandant_id TEXT,
-                land_id TEXT,
-                saison_id TEXT,
-                bezirk_id TEXT,
-                FOREIGN KEY (saison_id) REFERENCES saisons(id),
-                FOREIGN KEY (bezirk_id) REFERENCES bezirke(id)
-            )
-        """)
-        )
-
     if mappedKreise:
         export_data(name, mappedKreise)
     return mappedKreise
@@ -230,34 +176,12 @@ def get_spieltage(saison_id, liga_id):
         }
         for spieltag in spieltage
     ]
-
-    with engine.begin() as con:
-        con.execute(
-            text(f"""
-            CREATE TABLE IF NOT EXISTS {name} (
-                id TEXT PRIMARY KEY,
-                saison_id TEXT,
-                liga_id TEXT,
-                nummer TEXT,
-                name TEXT,
-                ist_abgeschlossen TEXT,
-                FOREIGN KEY (saison_id) REFERENCES saisons(id),
-                FOREIGN KEY (liga_id) REFERENCES ligen(id)
-            )
-        """)
-        )
-
     if mappedSpieltage:
         export_data(name, mappedSpieltage)
     return mappedSpieltage
 
 
 def get_spiele(saison_id, liga_id, spieltag_id, klub_id=0, bezirk_id=0, kreis_id=0):
-    # art_bezirk: 0 -> bundesliga, art_bezirk: 1 -> bskv, art_bezirk: 2 -> regierungsbezirke
-    # art_kreis: 0 -> bundesliga/bsvk, art_kreis: 1 -> unterfranken, oberfranken, mittelfranken, ...
-    # art_liga: 0 -> immer
-    # art_spieltag: 2 -> ???
-
     """
     {
         "id": int,
@@ -294,12 +218,10 @@ def get_spiele(saison_id, liga_id, spieltag_id, klub_id=0, bezirk_id=0, kreis_id
             "art_spieltag": 2,
         }
     )
-    
     mappedSpiele = []
     for spiel in spiele:
         spiel_id = spiel[0]
         mappedMannschaften = get_spiel_info(saison_id, spiel_id)
-
         mappedSpiel = {
             "id": spiel[0],
             "saison_id": saison_id,
@@ -322,40 +244,28 @@ def get_spiele(saison_id, liga_id, spieltag_id, klub_id=0, bezirk_id=0, kreis_id
             "stream_link": spiel[12],
         }
         mappedSpiele.append(mappedSpiel)
-
-    with engine.begin() as con:
-        con.execute(
-            text(f"""
-            CREATE TABLE IF NOT EXISTS {name} (
-                id TEXT PRIMARY KEY,
-                saison_id TEXT,
-                bezirk_id TEXT,
-                kreis_id TEXT,
-                liga_id TEXT,
-                spieltag_id TEXT,
-                datum TEXT,
-                uhrzeit TEXT,
-                heim_name TEXT,
-                heim_mp TEXT,
-                gast_name TEXT,
-                gast_mp TEXT,
-                status TEXT,
-                info TEXT,
-                stream_link TEXT,
-                FOREIGN KEY (saison_id) REFERENCES saisons(id),
-                FOREIGN KEY (bezirk_id) REFERENCES bezirke(id),
-                FOREIGN KEY (kreis_id) REFERENCES kreise(id),
-                FOREIGN KEY (spieltag_id) REFERENCES spieltage(id),
-                FOREIGN KEY (liga_id) REFERENCES ligen(id)
-            )
-        """)
-        )
-
     if mappedSpiele:
         export_data(name, mappedSpiele)
-
-    export_data(name, mappedSpiele)
     return mappedSpiele
+
+
+def insert_spieler(engine, spieler_data):
+    insert_sql = text("""
+        INSERT INTO spieler (
+            id, name, bahn_1, bahn_2, bahn_3, bahn_4, gesamt, sp, mp, spiel_id
+        ) VALUES (
+            :id, :name, :bahn_1, :bahn_2, :bahn_3, :bahn_4, :gesamt, :sp, :mp, :spiel_id
+        )
+    """)
+    if isinstance(spieler_data, dict):
+        spieler_data = [spieler_data]
+    with engine.begin() as con:
+        for row in spieler_data:
+            try:
+                con.execute(insert_sql, row)
+            except IntegrityError:
+                # Duplicates
+                pass
 
 
 def get_spiel_info(saison_id, spiel_id):
@@ -373,47 +283,28 @@ def get_spiel_info(saison_id, spiel_id):
         }
     }
     """
-    duelle = sportwinner_api({
-        "command": "GetSpielerInfo",
-        "id_saison": saison_id,
-        "id_spiel": spiel_id,
-    })
-
+    duelle = sportwinner_api(
+        {
+            "command": "GetSpielerInfo",
+            "id_saison": saison_id,
+            "id_spiel": spiel_id,
+        }
+    )
     mappedMannschaften = {
         "heim_mannschaft": {
             "gesamt": duelle[-1][5],
             "mp": duelle[-1][6],
-            "sp": duelle[-1][7]
+            "sp": duelle[-1][7],
         },
         "gast_mannschaft": {
             "gesamt": duelle[-1][10],
             "mp": duelle[-1][9],
-            "sp": duelle[-1][8]
-        }
+            "sp": duelle[-1][8],
+        },
     }
-
-    name = "spieler"
-    with engine.begin() as con:
-        con.execute(
-            text(f"""
-            CREATE TABLE IF NOT EXISTS {name} (
-                id INTEGER PRIMARY KEY,
-                name TEXT,
-                bahn_1 TEXT,
-                bahn_2 TEXT,
-                bahn_3 TEXT,
-                bahn_4 TEXT,
-                gesamt TEXT,
-                sp TEXT,
-                mp TEXT,
-                spiel_id TEXT,
-                FOREIGN KEY (spiel_id) REFERENCES spiele(id)
-            )
-        """)
-        )
-
-    for duell in duelle[:-1]:
+    for duell in duelle[1:-1]:
         mappedHeimSpieler = {
+            "id": md5(f"{spiel_id}-{duell[0]}-h".encode("utf-8")).hexdigest()[:10],
             "spiel_id": spiel_id,
             "name": duell[0],
             "bahn_1": duell[1],
@@ -422,11 +313,10 @@ def get_spiel_info(saison_id, spiel_id):
             "bahn_4": duell[4],
             "gesamt": duell[5],
             "sp": duell[6],
-            "mp": duell[7]
+            "mp": duell[7],
         }
-        export_data(name, [mappedHeimSpieler])
-
         mappedGastSpieler = {
+            "id": md5(f"{spiel_id}-{duell[15]}-g".encode("utf-8")).hexdigest()[:10],
             "spiel_id": spiel_id,
             "name": duell[15],
             "bahn_1": duell[14],
@@ -435,10 +325,10 @@ def get_spiel_info(saison_id, spiel_id):
             "bahn_4": duell[11],
             "gesamt": duell[10],
             "sp": duell[9],
-            "mp": duell[8]
+            "mp": duell[8],
         }
-        export_data(name, [mappedGastSpieler])
-
+        insert_spieler(engine, mappedHeimSpieler)
+        insert_spieler(engine, mappedGastSpieler)
     return mappedMannschaften
 
 

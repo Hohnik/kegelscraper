@@ -2,19 +2,15 @@ import time
 import requests
 import pandas as pd
 from pathlib import Path
+from sqlalchemy import create_engine, text
+
+engine = create_engine('sqlite:///database.db', echo=False)
 
 
-def export_data(url: str, data: dict):
-    data_dir = Path("data")
-    data_dir.mkdir(exist_ok=True)
-    path = data_dir / url
-
+def export_data(table_name: str, data: dict):
     df = pd.DataFrame(data)
-    if path.exists():
-        df.to_csv(path, mode="a", header=False, index=False)
-    else:
-        df.to_csv(path, mode="w", header=True, index=False)
-    return path
+    with engine.begin() as con:
+        df.to_sql(name=table_name,con=con, if_exists="replace", index=False)
 
 
 def get_saisons():
@@ -25,10 +21,21 @@ def get_saisons():
         "ist_abgeschlossen": int,
     }
     """
-    path = "saisons.csv"
     saisons = sportwinner_api({"command": "GetSaisonArray"})
+
+    table_name = "saisons"
     body = [{"id": saison[0], "jahr": saison[1], "ist_abgeschlossen": saison[2]} for saison in saisons]
-    export_data(path, body)
+
+    with engine.begin() as con:
+        con.execute(text(f"""
+            CREATE TABLE IF NOT EXISTS {table_name} (
+                id TEXT PRIMARY KEY,
+                jahr TEXT,
+                ist_abgeschlossen TEXT
+            )
+        """))
+
+    export_data(table_name, body)
     return body
 
 

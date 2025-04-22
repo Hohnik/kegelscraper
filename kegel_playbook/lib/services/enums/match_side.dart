@@ -1,0 +1,4 @@
+enum MatchSide {
+  home,
+  away,
+}

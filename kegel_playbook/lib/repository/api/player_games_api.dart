@@ -1,9 +1,16 @@
 import 'models/player_game.dart';
 
-class Api {
-  Future<List<PlayerGame>> getPlayerGames(String playerId) async {
+class PlayerGamesApi {
+  String _cleanName(String name) {
+    // Remove all non-letter characters and spaces, then convert to lowercase
+    return name.replaceAll(RegExp(r'[^a-zA-Z]'), '').toLowerCase();
+  }
+
+  Future<List<PlayerGame>> getPlayerGames(String playerName) async {
     // Mock data - in a real implementation, this would fetch from Supabase
-    if (playerId == '1') {
+    final cleanedName = _cleanName(playerName);
+
+    if (cleanedName == _cleanName('John Doe')) {
       return [
         PlayerGame(
           id: '1',
@@ -54,7 +61,7 @@ class Api {
           points: 1.0,
         ),
       ];
-    } else {
+    } else if (cleanedName == _cleanName('Jane Smith')) {
       return [
         PlayerGame(
           id: '1',
@@ -105,6 +112,9 @@ class Api {
           points: 1.0,
         ),
       ];
+    } else {
+      // Return empty list for unknown players
+      return [];
     }
   }
 }

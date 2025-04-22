@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../repository/api/models/player_game.dart';
 import '../repository/api/player_games_api.dart';
-import 'enums/match_side.dart';
 
 class SelectedPlayersState {
   late final PlayerGamesApi _playerGamesApi;
@@ -18,26 +17,13 @@ class SelectedPlayersState {
   ValueNotifier<List<PlayerGame>> get awayPlayerGames => _awayPlayerGames;
 
   Future<void> getPlayerGames({
-    required String playerName,
-    required MatchSide matchSide,
+    required String homePlayerName,
+    required String awayPlayerName,
   }) async {
-    final playerGames = await _playerGamesApi.getPlayerGames(playerName);
+    final homePlayerGames = await _playerGamesApi.getPlayerGames(homePlayerName);
+    final awayPlayerGames = await _playerGamesApi.getPlayerGames(awayPlayerName);
 
-    switch (matchSide) {
-      case MatchSide.home:
-        _setHomePlayerGames(playerGames);
-        return;
-      case MatchSide.away:
-        _setAwayPlayerGames(playerGames);
-        return;
-    }
-  }
-
-  void _setHomePlayerGames(List<PlayerGame> playerGames) {
-    _homePlayerGames.value = playerGames;
-  }
-
-  void _setAwayPlayerGames(List<PlayerGame> playerGames) {
-    _awayPlayerGames.value = playerGames;
+    _homePlayerGames.value = homePlayerGames;
+    _awayPlayerGames.value = awayPlayerGames;
   }
 }

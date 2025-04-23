@@ -16,10 +16,20 @@ class TwoPlayerTotalAverageComparison extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final homePlayerAdvantage = homePlayerAverageTotal > awayPlayerAverageTotal;
+    final homePlayerTextStyle = TextStyle(color: homePlayerAdvantage ? Colors.green : Colors.black);
+    final awayPlayerTextStyle = TextStyle(color: homePlayerAdvantage ? Colors.black : Colors.green);
+
     return TwoPlayerComparisonSection(
       title: title,
-      homePlayerWidget: Text('$homePlayerAverageTotal'),
-      awayPlayerWidget: Text('$awayPlayerAverageTotal'),
+      homePlayerWidget: Text(
+        homePlayerAverageTotal.toStringAsFixed(2),
+        style: homePlayerTextStyle,
+      ),
+      awayPlayerWidget: Text(
+        awayPlayerAverageTotal.toStringAsFixed(2),
+        style: awayPlayerTextStyle,
+      ),
     );
   }
 }

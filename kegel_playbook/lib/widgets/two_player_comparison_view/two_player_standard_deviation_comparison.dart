@@ -16,10 +16,20 @@ class TwoPlayerStandardDeviationComparison extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final homePlayerAdvantage = homePlayerStandardDeviation < awayPlayerStandardDeviation;
+    final homePlayerTextStyle = TextStyle(color: homePlayerAdvantage ? Colors.green : Colors.black);
+    final awayPlayerTextStyle = TextStyle(color: homePlayerAdvantage ? Colors.black : Colors.green);
+
     return TwoPlayerComparisonSection(
       title: title,
-      homePlayerWidget: Text('$homePlayerStandardDeviation'),
-      awayPlayerWidget: Text('$awayPlayerStandardDeviation'),
+      homePlayerWidget: Text(
+        homePlayerStandardDeviation.toStringAsFixed(2),
+        style: homePlayerTextStyle,
+      ),
+      awayPlayerWidget: Text(
+        awayPlayerStandardDeviation.toStringAsFixed(2),
+        style: awayPlayerTextStyle,
+      ),
     );
   }
 }

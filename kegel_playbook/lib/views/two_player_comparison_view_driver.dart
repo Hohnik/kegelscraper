@@ -20,12 +20,46 @@ class TwoPlayerComparisonViewDriver extends WidgetDriver {
 
   String get totalAverageTitle => 'Total average';
   String get standardDeviationTitle => 'Standard deviation';
+  String get laneAveragesTitle => 'Lane averages';
+  String get onFormTitle => 'On form';
+
+  String get homePlayerName => _homePlayerGames.isNotEmpty ? _homePlayerGames.first.name : '';
+  String get awayPlayerName => _awayPlayerGames.isNotEmpty ? _awayPlayerGames.first.name : '';
 
   double get homePlayerStandardDeviation => _calculateStandardDeviation(_homePlayerGames);
   double get awayPlayerStandardDeviation => _calculateStandardDeviation(_awayPlayerGames);
 
   double get homePlayerAverageTotal => calcAverage(_homePlayerGames.map((game) => game.total).toList());
   double get awayPlayerAverageTotal => calcAverage(_awayPlayerGames.map((game) => game.total).toList());
+
+  List<double> get homePlayerLaneAverages => [
+        calcAverage(_homePlayerGames.map((game) => game.lane1).toList()),
+        calcAverage(_homePlayerGames.map((game) => game.lane2).toList()),
+        calcAverage(_homePlayerGames.map((game) => game.lane3).toList()),
+        calcAverage(_homePlayerGames.map((game) => game.lane4).toList()),
+      ];
+
+  List<double> get awayPlayerLaneAverages => [
+        calcAverage(_awayPlayerGames.map((game) => game.lane1).toList()),
+        calcAverage(_awayPlayerGames.map((game) => game.lane2).toList()),
+        calcAverage(_awayPlayerGames.map((game) => game.lane3).toList()),
+        calcAverage(_awayPlayerGames.map((game) => game.lane4).toList()),
+      ];
+
+  double? get homePlayerOnForm => _calculateOnForm(_homePlayerGames);
+  double? get awayPlayerOnForm => _calculateOnForm(_awayPlayerGames);
+
+  double? _calculateOnForm(List<PlayerGame> games) {
+    if (games.length < 3) return null;
+
+    final totalAverage = calcAverage(games.map((game) => game.total).toList());
+    final lastThreeGames = games.sublist(games.length - 3);
+    final lastThreeAverage = calcAverage(lastThreeGames.map((game) => game.total).toList());
+    final difference = lastThreeAverage - totalAverage;
+
+    if (difference.abs() <= 5) return null;
+    return difference;
+  }
 
   double _calculateStandardDeviation(List<PlayerGame> games) {
     final values = games.map((game) => game.total).toList();
@@ -61,7 +95,7 @@ class TwoPlayerComparisonViewDriver extends WidgetDriver {
     _selectedPlayersState.awayPlayerGames.addListener(_onAwayPlayerGamesChange);
 
     _selectedPlayersState.getPlayerGames(
-      homePlayerName: 'John Doe',
+      homePlayerName: 'Felix Hohn',
       awayPlayerName: 'Jane Smith',
     );
   }

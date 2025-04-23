@@ -96,7 +96,7 @@ class TwoPlayerComparisonViewDriver extends WidgetDriver {
 
     _selectedPlayersState.getPlayerGames(
       homePlayerName: 'Felix Hohn',
-      awayPlayerName: 'Jane Smith',
+      awayPlayerName: 'Michael Wasserl',
     );
   }
 }
